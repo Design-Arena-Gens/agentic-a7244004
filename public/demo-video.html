@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: #000;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+    canvas {
+      display: block;
+      max-width: 100%;
+      max-height: 100vh;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="canvas"></canvas>
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+
+    canvas.width = 1920;
+    canvas.height = 1080;
+
+    let frame = 0;
+    const totalFrames = 900; // 30 seconds at 30fps
+
+    function drawScene() {
+      // Sky gradient (early winter morning with sunrise)
+      const timeProgress = frame / totalFrames;
+      const skyGradient = ctx.createLinearGradient(0, 0, 0, canvas.height * 0.6);
+      skyGradient.addColorStop(0, `hsl(200, 40%, ${50 + timeProgress * 20}%)`);
+      skyGradient.addColorStop(0.5, `hsl(35, 60%, ${70 + timeProgress * 10}%)`);
+      skyGradient.addColorStop(1, `hsl(25, 80%, ${65 + timeProgress * 15}%)`);
+      ctx.fillStyle = skyGradient;
+      ctx.fillRect(0, 0, canvas.width, canvas.height * 0.6);
+
+      // Sun (rising)
+      const sunY = canvas.height * 0.3 - timeProgress * 100;
+      const sunGradient = ctx.createRadialGradient(
+        canvas.width * 0.8, sunY, 10,
+        canvas.width * 0.8, sunY, 100
+      );
+      sunGradient.addColorStop(0, 'rgba(255, 200, 100, 0.9)');
+      sunGradient.addColorStop(1, 'rgba(255, 150, 50, 0)');
+      ctx.fillStyle = sunGradient;
+      ctx.beginPath();
+      ctx.arc(canvas.width * 0.8, sunY, 80, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Ground
+      ctx.fillStyle = '#8B7355';
+      ctx.fillRect(0, canvas.height * 0.6, canvas.width, canvas.height * 0.4);
+
+      // Grass with texture
+      const grassGradient = ctx.createLinearGradient(0, canvas.height * 0.6, 0, canvas.height * 0.75);
+      grassGradient.addColorStop(0, '#567D46');
+      grassGradient.addColorStop(1, '#3D5A2F');
+      ctx.fillStyle = grassGradient;
+      ctx.fillRect(0, canvas.height * 0.6, canvas.width, canvas.height * 0.15);
+
+      // Add grass texture
+      for (let i = 0; i < 100; i++) {
+        const gx = Math.random() * canvas.width;
+        const gy = canvas.height * 0.6 + Math.random() * canvas.height * 0.15;
+        ctx.strokeStyle = `rgba(70, 100, 50, ${0.3 + Math.random() * 0.3})`;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(gx, gy);
+        ctx.lineTo(gx, gy - 5 - Math.random() * 10);
+        ctx.stroke();
+      }
+
+      // Background palm trees (depth)
+      const cameraOffset = frame * 1.5;
+      for (let i = 0; i < 12; i++) {
+        const treeX = (canvas.width * (0.05 + i * 0.085) - cameraOffset * 0.3) % (canvas.width * 1.2);
+        const treeY = canvas.height * 0.52;
+        drawPalmTree(treeX, treeY, 0.6, 0.5);
+      }
+
+      // Mid-ground palm trees
+      for (let i = 0; i < 10; i++) {
+        const treeX = (canvas.width * (0.08 + i * 0.11) - cameraOffset * 0.6) % (canvas.width * 1.3);
+        const treeY = canvas.height * 0.58;
+        drawPalmTree(treeX, treeY, 0.9, 0.7);
+      }
+
+      // Dirt path with perspective
+      const pathGradient = ctx.createLinearGradient(0, canvas.height * 0.6, 0, canvas.height);
+      pathGradient.addColorStop(0, '#9B8470');
+      pathGradient.addColorStop(1, '#A68A6D');
+      ctx.fillStyle = pathGradient;
+      ctx.beginPath();
+      ctx.moveTo(canvas.width * 0.35, canvas.height);
+      ctx.lineTo(canvas.width * 0.42, canvas.height * 0.6);
+      ctx.lineTo(canvas.width * 0.58, canvas.height * 0.6);
+      ctx.lineTo(canvas.width * 0.65, canvas.height);
+      ctx.closePath();
+      ctx.fill();
+
+      // Path texture
+      for (let i = 0; i < 50; i++) {
+        const px = canvas.width * (0.38 + Math.random() * 0.24);
+        const py = canvas.height * (0.65 + Math.random() * 0.35);
+        ctx.fillStyle = `rgba(120, 100, 80, ${0.2 + Math.random() * 0.3})`;
+        ctx.beginPath();
+        ctx.arc(px, py, 2 + Math.random() * 3, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // Man walking (center, animated)
+      const manX = canvas.width * 0.5;
+      const manY = canvas.height * 0.68;
+      const walkCycle = Math.sin(frame * 0.15);
+      drawMan(manX, manY, walkCycle, 1.0);
+
+      // Foreground palm trees
+      drawPalmTree(canvas.width * 0.12, canvas.height * 0.68, 1.4, 1.0);
+      drawPalmTree(canvas.width * 0.88, canvas.height * 0.68, 1.4, 1.0);
+
+      // Fog layers (animated and layered for depth)
+      const fogOffset = (frame % 300) / 300;
+      for (let layer = 0; layer < 3; layer++) {
+        for (let i = 0; i < 6; i++) {
+          const fogX = (canvas.width * (i * 0.18 + fogOffset * 0.15 + layer * 0.05)) % (canvas.width * 1.1);
+          const fogY = canvas.height * (0.4 + layer * 0.1);
+          const fogGradient = ctx.createRadialGradient(
+            fogX, fogY, 50,
+            fogX, fogY, 300 + layer * 50
+          );
+          fogGradient.addColorStop(0, `rgba(255, 255, 255, ${0.3 - layer * 0.08})`);
+          fogGradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+          ctx.fillStyle = fogGradient;
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+      }
+
+      // Foreground fog overlay
+      const fogOverlay = ctx.createLinearGradient(0, canvas.height * 0.75, 0, canvas.height);
+      fogOverlay.addColorStop(0, 'rgba(240, 240, 245, 0)');
+      fogOverlay.addColorStop(1, 'rgba(240, 240, 245, 0.5)');
+      ctx.fillStyle = fogOverlay;
+      ctx.fillRect(0, canvas.height * 0.75, canvas.width, canvas.height * 0.25);
+
+      // Cinematic bars
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.9)';
+      ctx.fillRect(0, 0, canvas.width, 80);
+      ctx.fillRect(0, canvas.height - 80, canvas.width, 80);
+
+      // Title overlay with shadow
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.7)';
+      ctx.shadowBlur = 15;
+      ctx.shadowOffsetX = 3;
+      ctx.shadowOffsetY = 3;
+
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+      ctx.font = 'bold 56px Arial, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('বাংলাদেশী শীতের সকাল', canvas.width / 2, 95);
+
+      ctx.font = '36px Arial, sans-serif';
+      ctx.fillStyle = 'rgba(255, 220, 150, 0.9)';
+      ctx.fillText('Bangladeshi Winter Morning', canvas.width / 2, 145);
+
+      ctx.shadowColor = 'transparent';
+      ctx.shadowBlur = 0;
+
+      // Subtitle
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+      ctx.font = '28px Arial, sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText('খেজুরের রস সংগ্রহ | Date Palm Sap Collection', 50, canvas.height - 30);
+
+      // Camera info
+      ctx.textAlign = 'right';
+      ctx.font = '24px Arial, sans-serif';
+      const angles = ['Wide Shot', 'Medium Shot', 'Tracking Shot', 'Establishing Shot'];
+      const currentAngle = angles[Math.floor((frame / 200) % angles.length)];
+      ctx.fillText(`📹 Camera: ${currentAngle}`, canvas.width - 50, canvas.height - 30);
+    }
+
+    function drawPalmTree(x, y, scale, opacity) {
+      ctx.globalAlpha = opacity;
+
+      // Trunk with texture
+      const trunkGradient = ctx.createLinearGradient(x - 10 * scale, 0, x + 10 * scale, 0);
+      trunkGradient.addColorStop(0, '#6B5D4F');
+      trunkGradient.addColorStop(0.5, '#8B7355');
+      trunkGradient.addColorStop(1, '#6B5D4F');
+      ctx.fillStyle = trunkGradient;
+      ctx.fillRect(x - 10 * scale, y, 20 * scale, 120 * scale);
+
+      // Trunk rings
+      for (let i = 0; i < 8; i++) {
+        ctx.strokeStyle = 'rgba(80, 60, 40, 0.3)';
+        ctx.lineWidth = 2 * scale;
+        ctx.beginPath();
+        ctx.arc(x, y + i * 15 * scale, 12 * scale, 0, Math.PI);
+        ctx.stroke();
+      }
+
+      // Palm fronds
+      const frondGradient = ctx.createRadialGradient(x, y, 0, x, y, 60 * scale);
+      frondGradient.addColorStop(0, '#3D5A2F');
+      frondGradient.addColorStop(1, '#2D4520');
+
+      for (let i = 0; i < 10; i++) {
+        const angle = (i * Math.PI * 2) / 10 + Math.sin(frame * 0.05 + i) * 0.1;
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(angle);
+
+        ctx.fillStyle = frondGradient;
+        ctx.beginPath();
+        ctx.ellipse(0, -50 * scale, 18 * scale, 65 * scale, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Frond details
+        ctx.strokeStyle = 'rgba(80, 120, 60, 0.4)';
+        ctx.lineWidth = 1;
+        for (let j = 0; j < 5; j++) {
+          ctx.beginPath();
+          ctx.moveTo(-10 * scale, -30 * scale - j * 10 * scale);
+          ctx.lineTo(10 * scale, -30 * scale - j * 10 * scale);
+          ctx.stroke();
+        }
+
+        ctx.restore();
+      }
+
+      ctx.globalAlpha = 1.0;
+    }
+
+    function drawMan(x, y, walkCycle, scale) {
+      // Shadow
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+      ctx.beginPath();
+      ctx.ellipse(x, y + 140 * scale, 35 * scale, 10 * scale, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Head with face details
+      const headGradient = ctx.createRadialGradient(x - 5, y - 5, 5, x, y, 25);
+      headGradient.addColorStop(0, '#A0724F');
+      headGradient.addColorStop(1, '#7D5A3F');
+      ctx.fillStyle = headGradient;
+      ctx.beginPath();
+      ctx.arc(x, y, 25 * scale, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Face details
+      ctx.fillStyle = '#000';
+      ctx.beginPath();
+      ctx.arc(x - 8 * scale, y - 3 * scale, 2 * scale, 0, Math.PI * 2);
+      ctx.arc(x + 8 * scale, y - 3 * scale, 2 * scale, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Body wrapped in shawl (chadar)
+      const shawlGradient = ctx.createLinearGradient(x - 30 * scale, y + 20 * scale, x + 30 * scale, y + 80 * scale);
+      shawlGradient.addColorStop(0, '#FFF8DC');
+      shawlGradient.addColorStop(0.5, '#F5F5DC');
+      shawlGradient.addColorStop(1, '#E8E4D0');
+      ctx.fillStyle = shawlGradient;
+
+      ctx.beginPath();
+      ctx.moveTo(x - 30 * scale, y + 25 * scale);
+      ctx.lineTo(x + 30 * scale, y + 25 * scale);
+      ctx.lineTo(x + 28 * scale, y + 85 * scale);
+      ctx.lineTo(x - 28 * scale, y + 85 * scale);
+      ctx.closePath();
+      ctx.fill();
+
+      // Shawl folds
+      for (let i = 0; i < 4; i++) {
+        ctx.strokeStyle = 'rgba(200, 200, 180, 0.5)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(x - 28 * scale, y + 35 * scale + i * 15 * scale);
+        ctx.lineTo(x + 28 * scale, y + 35 * scale + i * 15 * scale);
+        ctx.stroke();
+      }
+
+      // Lungi (traditional white cloth)
+      const lungiGradient = ctx.createLinearGradient(x - 28 * scale, y + 85 * scale, x + 28 * scale, y + 135 * scale);
+      lungiGradient.addColorStop(0, '#FFFFFF');
+      lungiGradient.addColorStop(0.5, '#F8F8F8');
+      lungiGradient.addColorStop(1, '#E8E8E8');
+      ctx.fillStyle = lungiGradient;
+      ctx.fillRect(x - 28 * scale, y + 85 * scale, 56 * scale, 50 * scale);
+
+      // Lungi border
+      ctx.strokeStyle = '#8B4513';
+      ctx.lineWidth = 3;
+      ctx.strokeRect(x - 28 * scale, y + 85 * scale, 56 * scale, 50 * scale);
+
+      // Left arm holding clay pot
+      ctx.strokeStyle = '#F5F5DC';
+      ctx.lineWidth = 12 * scale;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(x - 28 * scale, y + 35 * scale);
+      ctx.lineTo(x - 45 * scale, y + 70 * scale + walkCycle * 3);
+      ctx.stroke();
+
+      // Clay pot (hari) - detailed
+      const potX = x - 55 * scale;
+      const potY = y + 75 * scale + walkCycle * 3;
+
+      const potGradient = ctx.createRadialGradient(potX - 5, potY - 5, 5, potX, potY, 20);
+      potGradient.addColorStop(0, '#D2691E');
+      potGradient.addColorStop(1, '#8B4513');
+      ctx.fillStyle = potGradient;
+
+      // Pot body
+      ctx.beginPath();
+      ctx.ellipse(potX, potY, 20 * scale, 25 * scale, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Pot rim
+      ctx.fillStyle = '#A0522D';
+      ctx.fillRect(potX - 22 * scale, potY - 25 * scale, 44 * scale, 5 * scale);
+
+      // Right arm
+      ctx.strokeStyle = '#F5F5DC';
+      ctx.lineWidth = 12 * scale;
+      ctx.beginPath();
+      ctx.moveTo(x + 28 * scale, y + 35 * scale);
+      ctx.lineTo(x + 40 * scale, y + 70 * scale - walkCycle * 3);
+      ctx.stroke();
+
+      // Legs (walking animation)
+      ctx.strokeStyle = '#FFFFFF';
+      ctx.lineWidth = 14 * scale;
+
+      // Left leg
+      ctx.beginPath();
+      ctx.moveTo(x - 12 * scale, y + 135 * scale);
+      ctx.lineTo(x - 18 * scale, y + 185 * scale + walkCycle * 15);
+      ctx.stroke();
+
+      // Right leg
+      ctx.beginPath();
+      ctx.moveTo(x + 12 * scale, y + 135 * scale);
+      ctx.lineTo(x + 18 * scale, y + 185 * scale - walkCycle * 15);
+      ctx.stroke();
+
+      // Feet
+      ctx.fillStyle = '#8B4513';
+      ctx.beginPath();
+      ctx.ellipse(x - 18 * scale, y + 188 * scale + walkCycle * 15, 12 * scale, 6 * scale, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.ellipse(x + 18 * scale, y + 188 * scale - walkCycle * 15, 12 * scale, 6 * scale, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    function animate() {
+      drawScene();
+      frame++;
+
+      if (frame < totalFrames) {
+        requestAnimationFrame(animate);
+      } else {
+        frame = 0; // Loop
+        requestAnimationFrame(animate);
+      }
+    }
+
+    animate();
+  </script>
+</body>
+</html>
